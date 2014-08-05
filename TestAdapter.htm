@@ -1,0 +1,77 @@
+<html>
+<head>    
+	<title>Test Adapters</title>
+	<meta http-equiv="PRAGMA" content="NO-CACHE" />
+    <meta http-equiv="EXPIRES" content="-1" />
+	<script type="text/javascript">
+	    function EncodeHtmlChars(str) {
+	        str = str.replace(/&/g, "&amp;");
+	        str = str.replace(/>/g, "&gt;");
+	        str = str.replace(/</g, "&lt;");
+	        str = str.replace(/"/g, "&quot;");
+	        str = str.replace(/'/g, "&#039;");
+	        return str;
+	    }
+
+	    function ExecuteFetchXml(fetchXml) {    	    
+            var xml = "<?xml version=\"1.0\" encoding=\"utf-8\"?>" +
+            "<soap:Envelope xmlns:soap=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\">" +
+            "  <soap:Header>" +
+            "    <CrmAuthenticationToken xmlns=\"http://schemas.microsoft.com/crm/2007/WebServices\">" +
+            "      <AuthenticationType xmlns=\"http://schemas.microsoft.com/crm/2007/CoreTypes\">0</AuthenticationType>" +
+            "      <OrganizationName xmlns=\"http://schemas.microsoft.com/crm/2007/CoreTypes\">Respina</OrganizationName>" +
+            "      <CallerId xmlns=\"http://schemas.microsoft.com/crm/2007/CoreTypes\">00000000-0000-0000-0000-000000000000</CallerId>" +
+            "    </CrmAuthenticationToken>" +
+            "  </soap:Header>" +
+            "  <soap:Body>" +
+            "    <Fetch xmlns=\"http://schemas.microsoft.com/crm/2007/WebServices\">" +
+            "      <fetchXml>" + EncodeHtmlChars(fetchXml) + "</fetchXml>" +
+            "    </Fetch>" +
+            "  </soap:Body>" +
+            "</soap:Envelope>";
+
+            var xmlHttpRequest = new ActiveXObject("Msxml2.XMLHTTP");
+            xmlHttpRequest.Open("POST", "/mscrmservices/2007/CrmService.asmx", false);
+            xmlHttpRequest.setRequestHeader("SOAPAction", "http://schemas.microsoft.com/crm/2007/WebServices/Fetch");
+            xmlHttpRequest.setRequestHeader("Content-Type", "text/xml; charset=utf-8");
+            xmlHttpRequest.setRequestHeader("Content-Length", xml.length);
+            xmlHttpRequest.send(xml);
+            return xmlHttpRequest.responseXML.text;
+    }
+
+
+    function load() {       
+        var fetchXml =
+            "<fetch mapping='logical'>" +
+            "  <entity name='account'>" +
+            "    <attribute name='accountid' />" +
+            "    <attribute name='address1_latitude' />" +
+            "    <attribute name='address1_longitude' />" +
+            "    <attribute name='statecode' />" +
+            "    <attribute name='new_popsiteid' />" +
+            "    <attribute name='name' />" +
+            "  </entity>" +
+            "</fetch>";
+        
+        var resultXml = ExecuteFetchXml(fetchXml);        
+        var xmlDoc = new ActiveXObject("Microsoft.XMLDOM");
+        xmlDoc.async = false;
+        xmlDoc.loadXML(resultXml);
+        
+        var accountsNumber = Number(xmlDoc.getElementsByTagName('result').length.valueOf());
+        for (var i = 0; i < 2; i++) {            
+            var xmlAccount = xmlDoc.getElementsByTagName('result')[i];
+            document.write(xmlAccount.getElementsByTagName('name')[0].text);            
+            
+        }
+    }
+
+    
+	</script>
+
+</head>
+<body onload="load()" style="PADDING-BOTTOM: 0px; MARGIN: 0px; PADDING-LEFT: 0px; PADDING-RIGHT: 0px; PADDING-TOP: 0px" >
+		
+</body>
+
+</html>

@@ -1,0 +1,414 @@
+<html>
+<head>    
+	<title>CRM Maps</title>
+	<meta http-equiv="PRAGMA" content="NO-CACHE" />
+    <meta http-equiv="EXPIRES" content="-1" />
+	<script type="text/javascript" src="http://maps.google.com/maps/api/js?sensor=false&libraries=geometry"></script>
+	<script src="maps.google.circleoverlay.js" type="text/javascript"></script>
+	<script type="text/javascript" src="linq.js"></script>
+	<script type="text/javascript">
+
+    function EncodeHtmlChars(str) {
+        str = str.replace(/&/g, "&amp;");
+        str = str.replace(/>/g, "&gt;");
+        str = str.replace(/</g, "&lt;");
+        str = str.replace(/"/g, "&quot;");
+        str = str.replace(/'/g, "&#039;");
+        return str;
+    }
+
+	var crmObjects = new Array();
+		
+    function gup(name) {
+        name = name.replace(/[\[]/, "\\\[").replace(/[\]]/, "\\\]");
+        var regexS = "[\\?&]" + name + "=([^&#]*)";
+        var regex = new RegExp(regexS);
+        var results = regex.exec(window.location.href);
+        if (results == null)
+            return "";
+        else
+            return results[1];
+    }
+
+    function ExecuteFetchXml(fetchXml) {
+        var xml = "<?xml version=\"1.0\" encoding=\"utf-8\"?>" +
+        "<soap:Envelope xmlns:soap=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\">" +
+        "  <soap:Header>" +
+        "    <CrmAuthenticationToken xmlns=\"http://schemas.microsoft.com/crm/2007/WebServices\">" +
+        "      <AuthenticationType xmlns=\"http://schemas.microsoft.com/crm/2007/CoreTypes\">0</AuthenticationType>" +
+        "      <OrganizationName xmlns=\"http://schemas.microsoft.com/crm/2007/CoreTypes\">Respina</OrganizationName>" +
+        "      <CallerId xmlns=\"http://schemas.microsoft.com/crm/2007/CoreTypes\">00000000-0000-0000-0000-000000000000</CallerId>" +
+        "    </CrmAuthenticationToken>" +
+        "  </soap:Header>" +
+        "  <soap:Body>" +
+        "    <Fetch xmlns=\"http://schemas.microsoft.com/crm/2007/WebServices\">" +
+        "      <fetchXml>" + EncodeHtmlChars(fetchXml) + "</fetchXml>" +
+        "    </Fetch>" +
+        "  </soap:Body>" +
+        "</soap:Envelope>";
+
+        var xmlHttpRequest = new ActiveXObject("Msxml2.XMLHTTP");
+        xmlHttpRequest.Open("POST", "/mscrmservices/2007/CrmService.asmx", false);
+        xmlHttpRequest.setRequestHeader("SOAPAction", "http://schemas.microsoft.com/crm/2007/WebServices/Fetch");
+        xmlHttpRequest.setRequestHeader("Content-Type", "text/xml; charset=utf-8");
+        xmlHttpRequest.setRequestHeader("Content-Length", xml.length);
+        xmlHttpRequest.send(xml);
+        return xmlHttpRequest.responseXML.text;
+    }
+
+    var icons = new Array();
+        icons["red"] = new google.maps.MarkerImage("http://www.google.com/intl/en_us/mapfiles/ms/micons/red-dot.png",
+        new google.maps.Size(32, 32),
+        new google.maps.Point(0, 0),
+        new google.maps.Point(16, 32));
+
+    var iconShape = {
+        coord: [19, 0, 24, 5, 24, 12, 23, 13, 23, 14, 20, 17, 20, 18, 19, 19,
+                19, 20, 18, 21, 18, 22, 17, 23, 17, 26, 16, 27, 16, 31, 14, 31, 14, 26, 13, 25,
+                13, 23, 12, 22, 12, 20, 10, 18, 10, 17, 7, 14, 7, 13, 6, 12, 6, 6, 7, 5, 7, 4, 11, 0],
+        type: 'poly'
+    };
+
+    function getMarkerImage(iconColor) {
+        
+        if ((typeof (iconColor) == "undefined") || (iconColor == null)) {
+            iconColor = "red";
+        }
+        
+        if (!icons[iconColor]) {
+            icons[iconColor] = new google.maps.MarkerImage("http://www.google.com/intl/en_us/mapfiles/ms/micons/" + iconColor + "-dot.png",
+                new google.maps.Size(32, 32),
+                new google.maps.Point(0, 0),
+                new google.maps.Point(16, 32));
+        }
+        return icons[iconColor];
+    }
+  
+    function createMarker(map, latlng, label, html, color, zIndex) {
+      var contentString = '<b>' + label + '</b><br>' + html;
+      var iconShadow = new google.maps.MarkerImage('http://maps.google.com/mapfiles/ms/micons/msmarker.shadow.png',
+      new google.maps.Size(59, 32),
+      new google.maps.Point(0, 0),
+      new google.maps.Point(16, 32));
+    
+        var marker = new google.maps.Marker({
+            position: latlng,
+            map: map,
+            shadow: iconShadow,
+            icon: getMarkerImage(color),
+            shape: iconShape,
+            title: label,
+            zIndex: zIndex
+        });
+        
+        var infowindow = new google.maps.InfoWindow(
+        {
+            size: new google.maps.Size(150, 50)
+        });
+        
+        google.maps.event.addListener(marker, 'click', function() {
+            infowindow.setContent(contentString);
+            infowindow.open(map, marker);
+        });
+
+        return marker;
+    }
+
+    var map = null;
+    
+    function HomeControl(controlDiv, map) {
+
+        // Set CSS styles for the DIV containing the control
+        // Setting padding to 5 px will offset the control
+        // from the edge of the map
+        controlDiv.style.padding = '5px';
+
+        // Set CSS for the control border
+        var controlUI = document.createElement('DIV');
+        controlUI.style.backgroundColor = 'white';
+        controlUI.style.borderStyle = 'solid';
+        controlUI.style.borderWidth = '2px';
+        controlUI.style.cursor = 'pointer';
+        controlUI.style.textAlign = 'left';
+        //controlUI.title = 'Click to set the map to Home';
+        controlDiv.appendChild(controlUI);
+
+        // Set CSS for the control interior
+        var controlText = document.createElement('DIV');
+        controlText.style.fontFamily = 'Arial,sans-serif';
+        controlText.style.fontSize = '12px';
+        controlText.style.paddingLeft = '4px';
+        controlText.style.paddingRight = '4px';
+        controlText.innerHTML = "<b><input id='AccountCheckBox' type='checkbox' checked=1 value='account' />Accounts<br /><input id='LeadCheckbox' checked=1 type='checkbox' />Leads<br /><input id='PopsitesCheckbox' checked=1 type='checkbox' />Popsites<br /></b>";
+        controlUI.appendChild(controlText);
+
+        google.maps.event.addDomListener(controlUI.all['PopsitesCheckbox'], 'click', function() {
+            setLayerVisible('new_popsite', controlUI.all['PopsitesCheckbox'].checked);
+        });
+
+        google.maps.event.addDomListener(controlUI.all['LeadCheckbox'], 'click', function() {
+            setLayerVisible('lead', controlUI.all['LeadCheckbox'].checked);
+        });
+
+        google.maps.event.addDomListener(controlUI.all['AccountCheckBox'], 'click', function() {
+            setLayerVisible('account', controlUI.all['AccountCheckBox'].checked);
+        });
+    }
+
+    function setLayerVisible(layer, visible) {        
+        for (x in crmObjects) {
+            if (crmObjects[x]['type'] == layer) {
+                crmObjects[x]['marker'].setVisible(visible);
+                if (crmObjects[x]['type'] == 'new_popsite') {
+                    if (visible) {
+                        crmObjects[x]['circle1'].setMap(map);
+                        crmObjects[x]['circle2'].setMap(map);
+                        crmObjects[x]['circle3'].setMap(map);
+                    }
+                    else {
+                        crmObjects[x]['circle1'].clear();
+                        crmObjects[x]['circle2'].clear();
+                        crmObjects[x]['circle3'].clear();
+                    }
+                }
+            }
+        }
+    }
+
+
+    function load() {
+        var centerLatlng = new google.maps.LatLng(Number(35.69334),Number(51.41893));
+        
+        var myOptions = { zoom: 12, center: centerLatlng, mapTypeId: google.maps.MapTypeId.ROADMAP }
+        map = new google.maps.Map(document.getElementById("map_canvas"), myOptions);
+
+        // enable onclick so we can change the crm forms
+        var currentId = gup('id');
+        if (currentId != "") {
+            google.maps.event.addListener(map, 'click', function(event) {            
+                  parent.crmForm['address1_latitude'].value = event.latLng.lat();
+                  parent.crmForm['address1_longitude'].value = event.latLng.lng();
+            });
+        }
+        var homeControlDiv = document.createElement('DIV');
+        var homeControl = new HomeControl(homeControlDiv, map);
+
+        homeControlDiv.index = 1;
+        map.controls[google.maps.ControlPosition.RIGHT_TOP].push(homeControlDiv);
+
+        getPopSites(map);
+        getAccounts();
+        getLeads(map);
+
+        var queryResult = Enumerable.From(crmObjects)
+            .Where(function(x) { return x.type == 'lead' })
+            .ToArray();
+                    
+        
+        // set zoom and center if we are in a crm form
+        var currentId = gup('id');
+        if (currentId != "") {
+            var currentLatlan = Enumerable.From(crmObjects).First(function(x) { return x.id == currentId }).latlan;            
+            map.setCenter(currentLatlan);
+            map.setZoom(Number(16));            
+        }
+    }
+
+
+    function connectPoints(point1, point2, color) {        
+        var lineCoordinates = [point1, point2];        
+        var linePath = new google.maps.Polyline({
+            path: lineCoordinates,
+            strokeColor: color,
+            strokeOpacity: 0.5,
+            strokeWeight: 2
+        });
+
+        linePath.setMap(map);
+        
+    }
+
+    function getAccounts() {
+        var fetchXml =
+            "<fetch mapping='logical'>" +
+            "  <entity name='account'>" +
+            "    <attribute name='accountid' />" +
+            "    <attribute name='address1_latitude' />" +
+            "    <attribute name='address1_longitude' />" +
+            "    <attribute name='statecode' />" +
+            "    <attribute name='new_popsiteid' />" +
+            "    <attribute name='name' />" +
+            "	 <filter> " +
+    	    "	   	  <condition attribute='address1_latitude' operator='not-null' /> " +
+     	    "		  <condition attribute='address1_longitude' operator='not-null' /> " +
+    	    "	 </filter> " +
+            "  </entity>" +
+            "</fetch>";
+
+        var resultXml = ExecuteFetchXml(fetchXml);
+
+        xmlDoc = new ActiveXObject("Microsoft.XMLDOM");
+        xmlDoc.async = false;
+        xmlDoc.loadXML(resultXml);
+
+        var accountsNumber = Number(xmlDoc.getElementsByTagName('result').length.valueOf());        
+        
+        for (var i = 0; i < accountsNumber; i++) {
+            var xmlAccount = xmlDoc.getElementsByTagName('result')[i];
+            var myLatlng = new google.maps.LatLng(
+                Number(xmlAccount.getElementsByTagName('address1_latitude')[0].text),
+                Number(xmlAccount.getElementsByTagName('address1_longitude')[0].text));
+
+            var accountId = xmlAccount.getElementsByTagName('accountid')[0].text;
+            
+            var color;            
+            if (xmlAccount.getElementsByTagName('statecode')[0].text == 1)
+                color = 'ltblue';
+            else
+                color = 'green';
+
+
+            var popSiteId = null, distance = "unkown";
+            try {
+                popSiteId = xmlAccount.getElementsByTagName('new_popsiteid')[0].text;
+                distance = google.maps.geometry.spherical.computeDistanceBetween(
+                    myLatlng,
+                    Enumerable.From(crmObjects).First(function(item) { return item.id == popSiteId; }).latlan);
+            }
+            
+            catch (e) { }
+            
+            
+            var marker = createMarker(map, myLatlng,
+                xmlAccount.getElementsByTagName('name')[0].text,
+                 "Distance: " + distance + "<br/><a href='ShowAccountsStatic.htm' onclick=OpenCrmWindow('accts=" + accountId + "')>Edit</a>",
+                color, i);
+
+            //crmObjects[accountId] = { id: accountId, latlan: myLatlng, type: 'account', marker: marker };
+            crmObjects.push({ id: accountId, latlan: myLatlng, type: 'account', marker: marker });
+
+            try {
+                latlan1 = Enumerable.From(crmObjects)
+                    .First(function(x) { return x.id == accountId; })
+                    .latlan;
+
+                latlan2 = Enumerable.From(crmObjects)
+                    .First(function(x) { return x.id == popSiteId; })
+                    .latlan;
+
+                connectPoints(latlan1, latlan2, "#FF0000")
+            }
+            catch (e) { }
+            
+        }        
+    }
+
+    function getLeads(map) {
+        var fetchXml =
+            "<fetch mapping='logical'>" +
+            "    <entity name='lead'>" +
+            "        <attribute name='address1_latitude' />" +
+            "        <attribute name='address1_longitude' />" +
+            "        <attribute name='companyname' />" +
+            "        <attribute name='firstname' />" +
+            "        <attribute name='lastname' />" +
+            "        <attribute name='leadid' />" +
+            "	     <filter> " +
+            "  	   	    <condition attribute='address1_latitude' operator='not-null' /> " +
+     	    "		    <condition attribute='address1_longitude' operator='not-null' /> " +
+     	    "		    <condition attribute='companyname' operator='not-null' /> " +
+    	    "	      </filter> " +
+            "    </entity>" +
+            "</fetch>";
+
+        var resultXml = ExecuteFetchXml(fetchXml);
+        xmlDoc = new ActiveXObject("Microsoft.XMLDOM");
+        xmlDoc.async = false;
+        xmlDoc.loadXML(resultXml);        
+    
+        var leadsNumber = Number(xmlDoc.getElementsByTagName('result').length.valueOf());
+        for (var i = 0; i < leadsNumber; i++) {
+            var myLatlng = new google.maps.LatLng(
+                Number(xmlDoc.getElementsByTagName('result')[i].getElementsByTagName('address1_latitude')[0].text),
+                Number(xmlDoc.getElementsByTagName('result')[i].getElementsByTagName('address1_longitude')[0].text));
+
+
+            var leadId = xmlDoc.getElementsByTagName('result')[i].getElementsByTagName('leadid')[0].text;
+            
+            var marker = createMarker(map, myLatlng,
+                xmlDoc.getElementsByTagName('result')[i].getElementsByTagName('firstname')[0].text,
+                "<a href='#' onclick=OpenCrmWindow('" + "leads=" + leadId + "')>Edit</a>", "yellow", i);
+
+            crmObjects.push({ id: leadId, latlan: myLatlng, type: 'lead', marker: marker });
+            //crmObjects[leadId] = { id: leadId, latlan: myLatlng, type: 'lead', marker: marker };
+        }
+    }
+
+    function getPopSites(map) {
+        var fetchXml =
+            "<fetch mapping='logical'>" +
+                "<entity name='new_popsite'>" +
+                    "<attribute name='new_latitude' />" +
+                    "<attribute name='new_longitude' />" +
+                    "<attribute name='new_name' />" +
+                    "<attribute name='new_popsiteid' />" +
+                "</entity>" +
+            "</fetch>";
+
+        var resultXml = ExecuteFetchXml(fetchXml);
+        xmlDoc = new ActiveXObject("Microsoft.XMLDOM");
+        xmlDoc.async = false;
+        xmlDoc.loadXML(resultXml);
+
+        var popSitesNumber = Number(xmlDoc.getElementsByTagName('result').length.valueOf());
+        for (var i = 0; i < popSitesNumber; i++) {
+            var myLatlng = new google.maps.LatLng(
+                Number(xmlDoc.getElementsByTagName('result')[i].getElementsByTagName('new_latitude')[0].text),
+                Number(xmlDoc.getElementsByTagName('result')[i].getElementsByTagName('new_longitude')[0].text));
+
+            var popSiteId = xmlDoc.getElementsByTagName('result')[i].getElementsByTagName('new_popsiteid')[0].text;
+            
+            
+            var marker = createMarker(map, myLatlng,
+                xmlDoc.getElementsByTagName('result')[i].getElementsByTagName('new_name')[0].text,
+                "<a href='#' onclick=OpenCrmWindow('userdefined="+ popSiteId +"')>Edit</a>",
+                "orange", i);
+                
+            var circle1 = new CircleOverlay(map, myLatlng, 3, "#000000", 1, 1, '#009900', 0.25, 100);
+            var circle2 = new CircleOverlay(map, myLatlng, 2, "#0000FF", 1, 1, '#0000FF', 0.25);
+            var circle3 = new CircleOverlay(map, myLatlng, 1, "#FF0000", 1, 1, '#FF0000', 0.25);            
+
+//            crmObjects[popSiteId] = { id: popSiteId, latlan: myLatlng, type: 'new_popsite',
+//            marker: marker, circle1: circle1, circle2: circle2, circle3: circle3
+//        };
+            crmObjects.push({ id: popSiteId, latlan: myLatlng, type: 'new_popsite',
+                marker: marker, circle1: circle1, circle2: circle2, circle3: circle3});        
+        }
+        
+        
+        
+    }
+
+    function OpenCrmWindow(params) {
+        var p = params.toString().split('=');
+        var trimedGuid = p[1].toString().substr(1, p[1].toString().length - 2)
+        var sfa = '', etc ='';
+        if (p[0] != 'userdefined') {
+            sfa = 'sfa/';
+        }
+        else {
+            etc = '&etc=10000';
+        }        
+        
+        window.showModalDialog("http://crmdemo:5555/Respina/" + sfa + p[0] +"/edit.aspx?id=%7b" + trimedGuid + "%7d" + etc,
+        'Account',
+        'dialogWidth:400px;dialogHeight:350px;center:yes;status:no;resizable:yes;');    
+    }
+	</script>
+
+</head>
+<body onload="load()" style="PADDING-BOTTOM: 0px; MARGIN: 0px; PADDING-LEFT: 0px; PADDING-RIGHT: 0px; PADDING-TOP: 0px" >
+	<div id="map_canvas" style="width: 100%; height: 100%; "></div>	
+</body>
+
+</html>

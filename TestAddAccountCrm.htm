@@ -1,0 +1,41 @@
+﻿<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <title></title>
+    <script>
+        var xml = "" +
+        "<?xml version=\"1.0\" encoding=\"utf-8\"?>" +
+        "<soap:Envelope xmlns:soap=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\">" +
+        "  <soap:Header>" +
+        "    <CrmAuthenticationToken xmlns=\"http://schemas.microsoft.com/crm/2007/WebServices\">" +
+        "      <AuthenticationType xmlns=\"http://schemas.microsoft.com/crm/2007/CoreTypes\">0</AuthenticationType>" +
+        "      <OrganizationName xmlns=\"http://schemas.microsoft.com/crm/2007/CoreTypes\">Respina</OrganizationName>" +
+        "      <CallerId xmlns=\"http://schemas.microsoft.com/crm/2007/CoreTypes\">00000000-0000-0000-0000-000000000000</CallerId>" +
+        "    </CrmAuthenticationToken>" +
+        "  </soap:Header>" +
+        "  <soap:Body>" +
+        "    <Fetch xmlns=\"http://schemas.microsoft.com/crm/2007/WebServices\">" +
+        "      <fetchXml>&lt;fetch mapping='logical'&gt;&lt;entity name='account'&gt;&lt;attribute name='address1_latitude' /&gt;&lt;attribute name='address1_longitude' /&gt;&lt;attribute name='name' /&gt;&lt;/entity&gt;&lt;/fetch&gt;</fetchXml>" +
+        "    </Fetch>" +
+        "  </soap:Body>" +
+        "</soap:Envelope>" +
+        "";
+
+        var xmlHttpRequest = new ActiveXObject("Msxml2.XMLHTTP");
+
+        xmlHttpRequest.Open("POST", "/mscrmservices/2007/CrmService.asmx", false);
+        xmlHttpRequest.setRequestHeader("SOAPAction", "http://schemas.microsoft.com/crm/2007/WebServices/Fetch");
+        xmlHttpRequest.setRequestHeader("Content-Type", "text/xml; charset=utf-8");
+        xmlHttpRequest.setRequestHeader("Content-Length", xml.length);
+        xmlHttpRequest.send(xml);
+
+        var resultXml = xmlHttpRequest.responseXML;
+        alert(resultXml.xml);
+
+
+    </script>
+</head>
+<body onload=''>
+
+</body>
+</html>

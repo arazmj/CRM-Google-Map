@@ -1,0 +1,246 @@
+﻿<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<HTML><HEAD><TITLE>Respina Map</TITLE>
+<META name=viewport content="initial-scale=1.0, user-scalable=no">
+<META content="text/html; charset=UTF-8" http-equiv=content-type>
+<STYLE type=text/css>HTML {
+	HEIGHT: 100%
+}
+BODY {
+	PADDING-BOTTOM: 0px; MARGIN: 0px; PADDING-LEFT: 0px; PADDING-RIGHT: 0px; HEIGHT: 100%; PADDING-TOP: 0px
+}
+#map_canvas {
+	WIDTH: 400px; HEIGHT: 500px
+}
+</STYLE>
+<!--<script type="text/javascript" src="http://maps.google.com/maps/api/js?sensor=false" />-->
+<script src="maps.google.circleoverlay.js" />
+
+
+<SCRIPT type=text/javascript>
+
+    function loadScript() {
+        var script = document.createElement("script");
+        script.type = "text/javascript";
+        script.src = "http://maps.google.com/maps/api/js?sensor=false&callback=initialize";
+        document.body.appendChild(script);
+    }
+
+    window.onload = loadScript;
+
+    function getMarkerImage(iconColor) {
+
+        var icons = new Array();
+            icons["red"] = new google.maps.MarkerImage("http://www.google.com/intl/en_us/mapfiles/ms/micons/red-dot.png",
+            new google.maps.Size(32, 32),
+            new google.maps.Point(0, 0),
+            new google.maps.Point(16, 32));
+      
+        if ((typeof (iconColor) == "undefined") || (iconColor == null)) {
+            iconColor = "red";
+        }
+        
+        if (!icons[iconColor]) {
+            icons[iconColor] = new google.maps.MarkerImage("http://www.google.com/intl/en_us/mapfiles/ms/micons/" + iconColor + "-dot.png",
+                new google.maps.Size(32, 32),
+                new google.maps.Point(0, 0),
+                new google.maps.Point(16, 32));
+        }
+        return icons[iconColor];
+    }
+    
+    var iconShape = {
+        coord: [19, 0, 24, 5, 24, 12, 23, 13, 23, 14, 20, 17, 20, 18, 19, 19,
+                19, 20, 18, 21, 18, 22, 17, 23, 17, 26, 16, 27, 16, 31, 14, 31, 14, 26, 13, 25,
+                13, 23, 12, 22, 12, 20, 10, 18, 10, 17, 7, 14, 7, 13, 6, 12, 6, 6, 7, 5, 7, 4, 11, 0],
+        type: 'poly'
+    };
+
+
+    function createMarker(map, latlng, label, html, color, zIndex) {
+      var contentString = '<b>' + label + '</b><br>' + html;
+      var iconShadow = new google.maps.MarkerImage('http://maps.google.com/mapfiles/ms/micons/msmarker.shadow.png',
+      new google.maps.Size(59, 32),
+      new google.maps.Point(0, 0),
+      new google.maps.Point(16, 32));
+    
+        var marker = new google.maps.Marker({
+            position: latlng,
+            map: map,
+            shadow: iconShadow,
+            icon: getMarkerImage(color),
+            shape: iconShape,
+            title: label,
+            zIndex: zIndex
+        });
+        
+        var infowindow = new google.maps.InfoWindow(
+        {
+            size: new google.maps.Size(150, 50)
+        });
+        
+        google.maps.event.addListener(marker, 'click', function() {
+            infowindow.setContent(contentString);
+            infowindow.open(map, marker);
+        });
+    }
+
+    function initialize() {
+        loadScriptCircle();
+        var xml = "" +
+        "<?xml version=\"1.0\" encoding=\"utf-8\"?>" +
+        "<soap:Envelope xmlns:soap=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\">" +
+        "  <soap:Header>" +
+        "    <CrmAuthenticationToken xmlns=\"http://schemas.microsoft.com/crm/2007/WebServices\">" +
+        "      <AuthenticationType xmlns=\"http://schemas.microsoft.com/crm/2007/CoreTypes\">0</AuthenticationType>" +
+        "      <OrganizationName xmlns=\"http://schemas.microsoft.com/crm/2007/CoreTypes\">Respina</OrganizationName>" +
+        "      <CallerId xmlns=\"http://schemas.microsoft.com/crm/2007/CoreTypes\">00000000-0000-0000-0000-000000000000</CallerId>" +
+        "    </CrmAuthenticationToken>" +
+        "  </soap:Header>" +
+        "  <soap:Body>" +
+        "    <Fetch xmlns=\"http://schemas.microsoft.com/crm/2007/WebServices\">" +
+        "      <fetchXml>&lt;fetch mapping='logical'&gt;&lt;entity name='account'&gt;&lt;attribute name='address1_latitude' /&gt;&lt;attribute name='address1_longitude' /&gt;&lt;attribute name='name' /&gt;&lt;/entity&gt;&lt;/fetch&gt;</fetchXml>" +
+        "    </Fetch>" +
+        "  </soap:Body>" +
+        "</soap:Envelope>" +
+        "";
+        var xmlHttpRequest = new ActiveXObject("Msxml2.XMLHTTP");
+        xmlHttpRequest.Open("POST", "/mscrmservices/2007/CrmService.asmx", false);
+        xmlHttpRequest.setRequestHeader("SOAPAction", "http://schemas.microsoft.com/crm/2007/WebServices/Fetch");
+        xmlHttpRequest.setRequestHeader("Content-Type", "text/xml; charset=utf-8");
+        xmlHttpRequest.setRequestHeader("Content-Length", xml.length);
+        xmlHttpRequest.send(xml);
+
+        var resultXml = xmlHttpRequest.responseXML.text;
+        xmlDoc = new ActiveXObject("Microsoft.XMLDOM");
+        xmlDoc.async = false;
+        xmlDoc.loadXML(resultXml);
+        
+        var myLatlng = new google.maps.LatLng(
+            Number(xmlDoc.getElementsByTagName('result')[0].getElementsByTagName('address1_latitude')[0].text),
+            Number(xmlDoc.getElementsByTagName('result')[0].getElementsByTagName('address1_longitude')[0].text)
+        );
+        var myOptions = { zoom: 12, center: myLatlng, mapTypeId: google.maps.MapTypeId.ROADMAP }
+        var map = new google.maps.Map(document.getElementById("map_canvas"), myOptions);        
+        createMarker(map, myLatlng, "hello", "<a href='google.com'>google! </a>", "blue", 0);
+
+        var accountsNumber = Number(xmlDoc.getElementsByTagName('result').length.valueOf());        
+        for (var i = 1; i < accountsNumber; i++) {
+            var myLatlng = new google.maps.LatLng(
+                Number(xmlDoc.getElementsByTagName('result')[i].getElementsByTagName('address1_latitude')[0].text),
+                Number(xmlDoc.getElementsByTagName('result')[i].getElementsByTagName('address1_longitude')[0].text));
+
+            createMarker(map, myLatlng,
+                xmlDoc.getElementsByTagName('result')[i].getElementsByTagName('name')[0].text,
+                "<a href='' onclick=OpenCrmWindow(12312321)>Open CRM Account Window</a>", 
+                "green", i);
+        }
+
+        getLeads(map);
+        getPopSites(map);
+        var circle1 = new CircleOverlay(map, map.getCenter(), 100, "#000000", 1, 1, '#009900', 0.25, 100);
+
+        
+    } // end of initialize
+
+    function getLeads(map) {
+        var xml = "" +
+        "<?xml version=\"1.0\" encoding=\"utf-8\"?>" +
+        "<soap:Envelope xmlns:soap=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\">" +
+        "  <soap:Header>" +
+        "    <CrmAuthenticationToken xmlns=\"http://schemas.microsoft.com/crm/2007/WebServices\">" +
+        "      <AuthenticationType xmlns=\"http://schemas.microsoft.com/crm/2007/CoreTypes\">0</AuthenticationType>" +
+        "      <OrganizationName xmlns=\"http://schemas.microsoft.com/crm/2007/CoreTypes\">Respina</OrganizationName>" +
+        "      <CallerId xmlns=\"http://schemas.microsoft.com/crm/2007/CoreTypes\">00000000-0000-0000-0000-000000000000</CallerId>" +
+        "    </CrmAuthenticationToken>" +
+        "  </soap:Header>" +
+        "  <soap:Body>" +
+        "    <Fetch xmlns=\"http://schemas.microsoft.com/crm/2007/WebServices\">" +
+        "      <fetchXml>&lt;fetch mapping='logical'&gt;&lt;entity name='lead'&gt;&lt;attribute name='address1_latitude' /&gt;&lt;attribute name='address1_longitude' /&gt;&lt;attribute name='firstname' /&gt;&lt;/entity&gt;&lt;/fetch&gt;</fetchXml>" +        
+        "    </Fetch>" +
+        "  </soap:Body>" +
+        "</soap:Envelope>" +
+        "";
+        
+
+        var xmlHttpRequest = new ActiveXObject("Msxml2.XMLHTTP");
+        xmlHttpRequest.Open("POST", "/mscrmservices/2007/CrmService.asmx", false);
+        xmlHttpRequest.setRequestHeader("SOAPAction", "http://schemas.microsoft.com/crm/2007/WebServices/Fetch");
+        xmlHttpRequest.setRequestHeader("Content-Type", "text/xml; charset=utf-8");
+        xmlHttpRequest.setRequestHeader("Content-Length", xml.length);
+        xmlHttpRequest.send(xml);
+
+        var resultXml = xmlHttpRequest.responseXML.text;
+        xmlDoc = new ActiveXObject("Microsoft.XMLDOM");
+        xmlDoc.async = false;
+        xmlDoc.loadXML(resultXml);
+        
+    
+        var leadsNumber = Number(xmlDoc.getElementsByTagName('result').length.valueOf());
+        for (var i = 1; i < leadsNumber; i++) {
+            var myLatlng = new google.maps.LatLng(
+                Number(xmlDoc.getElementsByTagName('result')[i].getElementsByTagName('address1_latitude')[0].text),
+                Number(xmlDoc.getElementsByTagName('result')[i].getElementsByTagName('address1_longitude')[0].text));
+
+            createMarker(map, myLatlng,
+                xmlDoc.getElementsByTagName('result')[i].getElementsByTagName('firstname')[0].text,
+                "<a href='' onclick=OpenCrmWindow(12312321)>Open CRM lead Window</a>",
+                "yellow", i);
+        }
+    }
+
+
+    function getPopSites(map) {
+        var xml = "" +
+        "<?xml version=\"1.0\" encoding=\"utf-8\"?>" +
+        "<soap:Envelope xmlns:soap=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\">" +
+        "  <soap:Header>" +
+        "    <CrmAuthenticationToken xmlns=\"http://schemas.microsoft.com/crm/2007/WebServices\">" +
+        "      <AuthenticationType xmlns=\"http://schemas.microsoft.com/crm/2007/CoreTypes\">0</AuthenticationType>" +
+        "      <OrganizationName xmlns=\"http://schemas.microsoft.com/crm/2007/CoreTypes\">Respina</OrganizationName>" +
+        "      <CallerId xmlns=\"http://schemas.microsoft.com/crm/2007/CoreTypes\">00000000-0000-0000-0000-000000000000</CallerId>" +
+        "    </CrmAuthenticationToken>" +
+        "  </soap:Header>" +
+        "  <soap:Body>" +
+        "    <Fetch xmlns=\"http://schemas.microsoft.com/crm/2007/WebServices\">" +
+        "      <fetchXml>&lt;fetch mapping='logical'&gt;&lt;entity name='new_popsite'&gt;&lt;attribute name='new_latitude' /&gt;&lt;attribute name='new_name' /&gt;&lt;attribute name='new_longitude' /&gt;&lt;/entity&gt;&lt;/fetch&gt;</fetchXml>" +
+        "    </Fetch>" +
+        "  </soap:Body>" +
+        "</soap:Envelope>" +
+        "";
+        
+        var xmlHttpRequest = new ActiveXObject("Msxml2.XMLHTTP");
+        xmlHttpRequest.Open("POST", "/mscrmservices/2007/CrmService.asmx", false);
+        xmlHttpRequest.setRequestHeader("SOAPAction", "http://schemas.microsoft.com/crm/2007/WebServices/Fetch");
+        xmlHttpRequest.setRequestHeader("Content-Type", "text/xml; charset=utf-8");
+        xmlHttpRequest.setRequestHeader("Content-Length", xml.length);
+        xmlHttpRequest.send(xml);
+
+        var resultXml = xmlHttpRequest.responseXML.text;
+        xmlDoc = new ActiveXObject("Microsoft.XMLDOM");
+        xmlDoc.async = false;
+        xmlDoc.loadXML(resultXml);
+
+        var PopSitesNumber = Number(xmlDoc.getElementsByTagName('result').length.valueOf());
+        for (var i = 1; i < PopSitesNumber; i++) {
+            var myLatlng = new google.maps.LatLng(
+                Number(xmlDoc.getElementsByTagName('result')[i].getElementsByTagName('new_latitude')[0].text),
+                Number(xmlDoc.getElementsByTagName('result')[i].getElementsByTagName('new_longitude')[0].text));
+
+            createMarker(map, myLatlng,
+                xmlDoc.getElementsByTagName('result')[i].getElementsByTagName('new_name')[0].text,
+                "<a href='' onclick=OpenCrmWindow(12312321)>Open CRM PopSite Window</a>",
+                "orange", i);
+        }
+    }
+
+    function OpenCrmWindow(guid) {
+        window.showModalDialog('http://crmdemo:5555/Respina/sfa/accts/edit.aspx?id=%7b5313AA6E-962C-E011-8666-000C294CE47D%7d',
+        'Account',
+        'dialogWidth:400px;dialogHeight:350px;center:yes;status:no;resizable:yes;');    
+    }
+
+
+</SCRIPT>
+<BODY>
+<DIV id=map_canvas style='width:auto; height:100%;'></DIV></BODY></HTML>
+
